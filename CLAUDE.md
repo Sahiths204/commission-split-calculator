@@ -81,4 +81,7 @@ epic): don't start implementing directly. First:
 2. Decide architecture, folder structure, and prerequisites (installs, DB, services) based on
    that requirement.
 3. For UI work, write design documentation for the pages before building them.
-4. Get the operator's explicit confirmation on the above before writing implementation code.
+
+**Operator confirmation (updated 2026-10-26):** only required before UI work — once a page's
+design doc exists, wait for explicit approval before building it. For everything else (steps 1-2
+above, non-UI implementation), proceed without waiting for a go-ahead each time.
