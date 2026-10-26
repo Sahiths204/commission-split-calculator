@@ -9,6 +9,21 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/commission_split_calculator
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: commission_split_calculator
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +38,11 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Apply DB migration
+        run: |
+          sudo apt-get install -y postgresql-client
+          psql "$DATABASE_URL" -f db/migrations/001_init.sql
 
       - name: Test
         run: npm run test
