@@ -40,7 +40,12 @@ on Fly.io.
   every substantive reply — including where it was wrong, stale, or thin.
 - Minimal code, no dead code. Build exactly what the ticket needs.
 - **For any UI/UX work: always open the page and check it** (dev server + browser), don't
-  consider a UI change done from reading the code alone.
+  consider a UI change done from reading the code alone. Use the `/test-ui` skill
+  (`.claude/skills/test-ui/`), which delegates to the `ui-tester` subagent
+  (`.claude/agents/ui-tester.md`) — it starts the real servers, exercises every flow by hand
+  (payees, base+override transaction, refund pairing, pagination, an error path, console/network,
+  both a desktop and a phone width), and reports PASS/FAIL per check. No UI ticket is Done without
+  this having actually run against the live page.
 - **Everything configurable**: DB connection, ports, rates, and any other environment-specific
   value come from config/env, never hardcoded.
 
