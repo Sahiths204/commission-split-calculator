@@ -26,3 +26,20 @@ on Fly.io.
 - Report which skill/plugin was used and what it gave, every substantive reply — including
   where it was wrong, stale, or thin.
 - Minimal code, no dead code. Build exactly what the ticket needs.
+- **Always invoke the generic `hive-*` engineering-standards skills** listed above for
+  consistency, reusability, and test-first (TDD) guidance — don't skip them just because a task
+  looks simple enough to write by hand.
+- **For any UI/UX work: always open the page and check it** (dev server + browser), don't
+  consider a UI change done from reading the code alone.
+- **Everything configurable**: DB connection, ports, rates, and any other environment-specific
+  value come from config/env, never hardcoded.
+
+## Before starting new work (gate — not optional)
+For a new project or a new feature area (not every small ticket within one already-scoped
+epic): don't start implementing directly. First:
+1. Coordinate with "Super" (the sibling chat handling business/client side) to get the full
+   business requirement.
+2. Decide architecture, folder structure, and prerequisites (installs, DB, services) based on
+   that requirement.
+3. For UI work, write design documentation for the pages before building them.
+4. Get the operator's explicit confirmation on the above before writing implementation code.
