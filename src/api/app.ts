@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import cors from 'cors';
 import { Decimal } from 'decimal.js';
 
 import { insertPayee, listPayees } from '../db/payeeRepository.js';
@@ -25,6 +26,9 @@ function serializePayoutLine(line: PayoutLine) {
 
 export const app = express();
 
+// Allowed origin is configurable via env (e.g. the frontend's dev-server URL or deployed
+// origin); defaults to the frontend's local dev port for a working setup with no extra config.
+app.use(cors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173' }));
 app.use(express.json());
 
 app.post('/payees', async (req: Request, res: Response) => {
