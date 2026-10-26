@@ -1,5 +1,6 @@
 import { Decimal } from 'decimal.js';
 import type { Payee, Transaction, PayoutLine } from './types.js';
+import { MONEY_ROUNDING_MODE } from './config.js';
 
 export function calculateBasePayout(amount: Decimal, rate: Decimal): Decimal {
   return amount.times(rate);
@@ -41,4 +42,10 @@ export function calculateTransactionPayouts(
   }
 
   return payoutLines;
+}
+
+// Apply this at a display or persistence boundary only — rounding happens exactly once, there,
+// never inside the calculation functions above, which must keep returning full exact precision.
+export function roundToCents(amount: Decimal): Decimal {
+  return amount.toDecimalPlaces(2, MONEY_ROUNDING_MODE);
 }

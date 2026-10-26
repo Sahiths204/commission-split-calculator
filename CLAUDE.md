@@ -22,22 +22,23 @@ on Fly.io.
   final tests, pushes, merges, and updates ticket status in Jira.
 - **The one hard rule for the agent tree: never let two agents edit the same file at the same
   time.** Split chunks along file boundaries so this can't happen — don't rely on timing.
-- Engineering-standard skills only (`hive-technology-standards:*`, `hive-engineering:*`,
-  `hive-qa:*`, `hive-database:*`, `hive-infra-devops:*`) — never business-specific `hive-*`
-  skills (`hive-manager:*`, `hive-teams:*`, `hive-sme-*`, `hive-director:*`, `hive-components:*`,
-  etc.). Those are proprietary to the employer and have no place here.
-  **Correction (2026-10-26): the namespace alone doesn't guarantee a skill is actually generic.**
-  `hive-qa:qa-base` was invoked expecting generic QA guidance and turned out to explicitly name
-  the employer and its specific lending platform in its own content. Before following any `hive-*`
-  skill's guidance here, skim what it actually says — if it names a real company, product, stack
-  requirement, or business rule, ignore that skill's content for this project (even if its
-  namespace is in the "allowed" list above) and say so in the handoff.
-- Report which skill/plugin was used and what it gave, every substantive reply — including
-  where it was wrong, stale, or thin.
+- Never business-specific `hive-*` skills (`hive-manager:*`, `hive-teams:*`, `hive-sme-*`,
+  `hive-director:*`, `hive-components:*`, etc.) — those are proprietary to the employer and have
+  no place here.
+  **Correction (2026-10-26), updated: the "generic engineering-standards" namespaces are not
+  reliably generic.** Two separate checks found real employer/product-specific content inside
+  nominally-generic skills: `hive-qa:qa-base` named the employer and its lending platform
+  directly; `hive-technology-standards:standards-typescript` mandated a specific internal stack
+  (named frameworks, cloud services, ID-prefix conventions, a fixed layering scheme) that has
+  nothing to do with this project. Two-for-two failures means the namespace tells you nothing —
+  **default to NOT invoking any `hive-*` skill on this project.** Implement directly from the
+  ticket's spec and ordinary engineering judgment instead. If you genuinely think a `hive-*`
+  skill might help on something unusually tricky, read its actual content first, in full, before
+  acting on any of it, and discard anything that names a real company, product, stack
+  requirement, or business rule — then say in the handoff exactly what you kept and why.
+- Report which skill/plugin was used (or that none was, per the default above) and what it gave,
+  every substantive reply — including where it was wrong, stale, or thin.
 - Minimal code, no dead code. Build exactly what the ticket needs.
-- **Always invoke the generic `hive-*` engineering-standards skills** listed above for
-  consistency, reusability, and test-first (TDD) guidance — don't skip them just because a task
-  looks simple enough to write by hand.
 - **For any UI/UX work: always open the page and check it** (dev server + browser), don't
   consider a UI change done from reading the code alone.
 - **Everything configurable**: DB connection, ports, rates, and any other environment-specific

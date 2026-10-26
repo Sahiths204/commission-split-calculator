@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Decimal } from 'decimal.js';
-import { calculateBasePayout, calculateTransactionPayouts } from '../calculate.js';
+import { calculateBasePayout, calculateTransactionPayouts, roundToCents } from '../calculate.js';
 import type { Payee, Transaction } from '../types.js';
 
 describe('calculateBasePayout', () => {
@@ -126,5 +126,107 @@ describe('calculateTransactionPayouts', () => {
     expect(result[0].payeeId).toBe(soloRep.id);
     expect(result[0].amount.equals(transaction.amount.times(soloRep.commissionRate))).toBe(true);
     expect(result[0].amount.equals(new Decimal('54.00'))).toBe(true);
+  });
+
+  it('caps the override at one level: a grandmanager above the manager receives no payout line', () => {
+    const grandManager: Payee = {
+      id: 'payee-grandmanager-1',
+      name: 'Morgan Price',
+      commissionRate: new Decimal('0.03'),
+      managerId: null,
+    };
+
+    const directManager: Payee = {
+      id: 'payee-directmanager-1',
+      name: 'Avery Quinn',
+      commissionRate: new Decimal('0.06'),
+      managerId: grandManager.id,
+    };
+
+    const chainPayee: Payee = {
+      id: 'payee-chain-1',
+      name: 'Drew Ellis',
+      commissionRate: new Decimal('0.22'),
+      managerId: directManager.id,
+    };
+
+    const chainPayees: Payee[] = [grandManager, directManager, chainPayee];
+
+    const transaction: Transaction = {
+      id: 'txn-3003',
+      payeeId: chainPayee.id,
+      amount: new Decimal('400.00'),
+      occurredAt: new Date('2026-03-01T00:00:00.000Z'),
+    };
+
+    const result = calculateTransactionPayouts(transaction, chainPayees);
+
+    expect(result).toHaveLength(2);
+
+    const basePayout = result.find((line) => line.type === 'base');
+    const overridePayout = result.find((line) => line.type === 'override');
+
+    expect(basePayout?.payeeId).toBe(chainPayee.id);
+    expect(overridePayout?.payeeId).toBe(directManager.id);
+
+    expect(result.some((line) => line.payeeId === grandManager.id)).toBe(false);
+  });
+});
+
+describe('calculateTransactionPayouts error paths', () => {
+  it('throws when the transaction references a payeeId not present in the payee list', () => {
+    const knownPayee: Payee = {
+      id: 'payee-known-1',
+      name: 'Taylor Finch',
+      commissionRate: new Decimal('0.10'),
+      managerId: null,
+    };
+
+    const transaction: Transaction = {
+      id: 'txn-4004',
+      payeeId: 'payee-unknown-404',
+      amount: new Decimal('150.00'),
+      occurredAt: new Date('2026-04-01T00:00:00.000Z'),
+    };
+
+    expect(() => calculateTransactionPayouts(transaction, [knownPayee])).toThrow(/payee-unknown-404/i);
+  });
+
+  it('throws when a payee\'s managerId references a manager not present in the payee list', () => {
+    const orphanedPayee: Payee = {
+      id: 'payee-orphan-1',
+      name: 'Jamie Voss',
+      commissionRate: new Decimal('0.12'),
+      managerId: 'payee-missing-manager-1',
+    };
+
+    const transaction: Transaction = {
+      id: 'txn-5005',
+      payeeId: orphanedPayee.id,
+      amount: new Decimal('200.00'),
+      occurredAt: new Date('2026-05-01T00:00:00.000Z'),
+    };
+
+    expect(() => calculateTransactionPayouts(transaction, [orphanedPayee])).toThrow(/payee-missing-manager-1/i);
+  });
+});
+
+describe('roundToCents', () => {
+  it('rounds a value needing rounding up to 2 decimal places under ROUND_HALF_UP', () => {
+    const result = roundToCents(new Decimal('12.345'));
+
+    expect(result.equals(new Decimal('12.35'))).toBe(true);
+  });
+
+  it('leaves a value already at 2 decimal places unchanged', () => {
+    const result = roundToCents(new Decimal('10.00'));
+
+    expect(result.equals(new Decimal('10.00'))).toBe(true);
+  });
+
+  it('rounds a negative value away from zero under ROUND_HALF_UP', () => {
+    const result = roundToCents(new Decimal('-12.345'));
+
+    expect(result.equals(new Decimal('-12.35'))).toBe(true);
   });
 });
