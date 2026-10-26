@@ -26,6 +26,12 @@ on Fly.io.
   `hive-qa:*`, `hive-database:*`, `hive-infra-devops:*`) — never business-specific `hive-*`
   skills (`hive-manager:*`, `hive-teams:*`, `hive-sme-*`, `hive-director:*`, `hive-components:*`,
   etc.). Those are proprietary to the employer and have no place here.
+  **Correction (2026-10-26): the namespace alone doesn't guarantee a skill is actually generic.**
+  `hive-qa:qa-base` was invoked expecting generic QA guidance and turned out to explicitly name
+  the employer and its specific lending platform in its own content. Before following any `hive-*`
+  skill's guidance here, skim what it actually says — if it names a real company, product, stack
+  requirement, or business rule, ignore that skill's content for this project (even if its
+  namespace is in the "allowed" list above) and say so in the handoff.
 - Report which skill/plugin was used and what it gave, every substantive reply — including
   where it was wrong, stale, or thin.
 - Minimal code, no dead code. Build exactly what the ticket needs.
