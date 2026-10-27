@@ -169,6 +169,16 @@ describe('app (integration against real Postgres)', () => {
     );
   });
 
+  it('POST /payees with a malformed (non-numeric) managerId returns 400, not a raw 500', async () => {
+    const res = await request(app)
+      .post('/payees')
+      .send({ name: 'Jamie Garbled', commissionRate: '0.10', managerId: '__not-an-id__' });
+
+    expect(res.status).toBe(400);
+    expect(typeof res.body.error).toBe('string');
+    expect(res.body.error).toBe('managerId does not reference an existing payee');
+  });
+
   it("POST /payees with a manager whose rate is strictly greater than the payee's succeeds", async () => {
     const seniorRes = await request(app)
       .post('/payees')

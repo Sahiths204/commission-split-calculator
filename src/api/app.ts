@@ -71,6 +71,11 @@ app.post('/payees', async (req: Request, res: Response) => {
   }
 
   if (managerId !== null) {
+    if (!/^\d+$/.test(managerId)) {
+      res.status(400).json({ error: 'managerId does not reference an existing payee' });
+      return;
+    }
+
     const manager = await getPayeeById(managerId);
     if (!manager) {
       res.status(400).json({ error: 'managerId does not reference an existing payee' });
