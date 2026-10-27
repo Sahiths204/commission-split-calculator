@@ -93,3 +93,19 @@ export async function getPayoutsForTransaction(transactionId: string): Promise<P
   );
   return payouts;
 }
+
+export interface TransactionSummary {
+  id: string;
+  payeeId: string;
+  amount: string;
+  occurredAt: string;
+}
+
+export async function getAllTransactions(): Promise<{
+  transactions: TransactionSummary[];
+  payoutLines: PayoutLine[];
+}> {
+  return request<{ transactions: TransactionSummary[]; payoutLines: PayoutLine[] }>(
+    '/transactions',
+  );
+}

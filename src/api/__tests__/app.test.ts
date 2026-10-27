@@ -151,4 +151,59 @@ describe('app (integration against real Postgres)', () => {
     expect(typeof res.body.error).toBe('string');
     expect(res.body.error.length).toBeGreaterThan(0);
   });
+
+  it('GET /transactions returns 200 with all persisted transactions and their payout lines, ordered sensibly', async () => {
+    // A third transaction, created here, so this test also has something created in its own flow
+    // rather than relying solely on the earlier tests' state.
+    const thirdRes = await request(app)
+      .post('/transactions')
+      .send({ payeeId: repId, amount: '200.00', occurredAt: '2026-01-25T00:00:00.000Z' });
+    expect(thirdRes.status).toBe(201);
+    const thirdTransactionId = (thirdRes.body.payouts as PayoutLineJson[])[0].transactionId;
+
+    const res = await request(app).get('/transactions');
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.transactions)).toBe(true);
+    expect(Array.isArray(res.body.payoutLines)).toBe(true);
+
+    const transactions = res.body.transactions as Array<{
+      id: string;
+      payeeId: string;
+      amount: string;
+      occurredAt: string;
+    }>;
+    const payoutLines = res.body.payoutLines as PayoutLineJson[];
+
+    // All transactions created so far in this run (base+override, refund, and the one just above)
+    // must be present -- exact order isn't asserted since several share close timestamps.
+    const transactionIds = transactions.map((t) => t.id);
+    expect(transactionIds).toContain(transactionId);
+    expect(transactionIds).toContain(thirdTransactionId);
+    expect(transactions.length).toBeGreaterThanOrEqual(3);
+
+    // The transaction/payout data recorded by the earlier base+override test must reflect real
+    // persisted state through this new endpoint, not just freshly-created-in-this-test data.
+    const earlierTransaction = transactions.find((t) => t.id === transactionId);
+    expect(earlierTransaction).toBeDefined();
+    expect(earlierTransaction?.payeeId).toBe(repId);
+    expect(new Decimal(earlierTransaction!.amount).equals(new Decimal('500.00'))).toBe(true);
+
+    const earlierLines = payoutLines.filter((p) => p.transactionId === transactionId);
+    expect(earlierLines).toHaveLength(2);
+    const earlierBase = earlierLines.find((p) => p.type === 'base');
+    const earlierOverride = earlierLines.find((p) => p.type === 'override');
+    expect(earlierBase?.payeeId).toBe(repId);
+    expect(earlierOverride?.payeeId).toBe(managerId);
+    expect(new Decimal(earlierBase!.amount).equals(new Decimal('100.00'))).toBe(true);
+    expect(new Decimal(earlierOverride!.amount).equals(new Decimal('25.00'))).toBe(true);
+
+    // Sensible ordering: occurredAt should be non-decreasing across the returned transactions.
+    for (let i = 1; i < transactions.length; i += 1) {
+      expect(
+        new Date(transactions[i].occurredAt).getTime() >=
+          new Date(transactions[i - 1].occurredAt).getTime(),
+      ).toBe(true);
+    }
+  });
 });

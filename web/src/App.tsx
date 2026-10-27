@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { getPayees, type Payee, type PayoutLine } from './api';
+import { getAllTransactions, getPayees, type Payee, type PayoutLine } from './api';
 import { PayeesPanel } from './components/PayeesPanel';
 import { TransactionForm } from './components/TransactionForm';
 import { AuditTrail } from './components/AuditTrail';
@@ -45,15 +45,17 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
-    getPayees()
-      .then((fetched) => {
+    Promise.all([getPayees(), getAllTransactions()])
+      .then(([fetchedPayees, fetchedTransactions]) => {
         if (!cancelled) {
-          setPayees(fetched);
+          setPayees(fetchedPayees);
+          setTransactions(fetchedTransactions.transactions);
+          setPayoutLines(fetchedTransactions.payoutLines);
         }
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : 'Failed to load payees');
+          setLoadError(error instanceof Error ? error.message : 'Failed to load data');
         }
       })
       .finally(() => {

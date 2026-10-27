@@ -3,8 +3,12 @@ import cors from 'cors';
 import { Decimal } from 'decimal.js';
 
 import { insertPayee, listPayees } from '../db/payeeRepository.js';
-import { createTransactionWithPayouts, getPayoutsForTransaction } from '../db/transactionRepository.js';
-import type { Payee, PayoutLine } from '../calculator/types.js';
+import {
+  createTransactionWithPayouts,
+  getPayoutsForTransaction,
+  listAllTransactionsWithPayouts,
+} from '../db/transactionRepository.js';
+import type { Payee, PayoutLine, Transaction } from '../calculator/types.js';
 
 function serializePayee(payee: Payee) {
   return {
@@ -21,6 +25,15 @@ function serializePayoutLine(line: PayoutLine) {
     payeeId: line.payeeId,
     type: line.type,
     amount: line.amount.toString(),
+  };
+}
+
+function serializeTransaction(transaction: Transaction) {
+  return {
+    id: transaction.id,
+    payeeId: transaction.payeeId,
+    amount: transaction.amount.toString(),
+    occurredAt: transaction.occurredAt.toISOString(),
   };
 }
 
@@ -81,6 +94,14 @@ app.post('/transactions', async (req: Request, res: Response) => {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(400).json({ error: message });
   }
+});
+
+app.get('/transactions', async (_req: Request, res: Response) => {
+  const { transactions, payoutLines } = await listAllTransactionsWithPayouts();
+  res.status(200).json({
+    transactions: transactions.map(serializeTransaction),
+    payoutLines: payoutLines.map(serializePayoutLine),
+  });
 });
 
 app.get('/transactions/:id/payouts', async (req: Request, res: Response) => {

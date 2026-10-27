@@ -96,3 +96,20 @@ export async function getPayoutsForTransaction(transactionId: string): Promise<P
   );
   return result.rows.map(mapPayoutRow);
 }
+
+export async function listAllTransactionsWithPayouts(): Promise<{
+  transactions: Transaction[];
+  payoutLines: PayoutLine[];
+}> {
+  const transactionsResult = await pool.query<TransactionRow>(
+    'SELECT * FROM transactions ORDER BY occurred_at ASC, id ASC',
+  );
+  const payoutsResult = await pool.query<PayoutRow>(
+    'SELECT * FROM payouts ORDER BY transaction_id ASC, type ASC',
+  );
+
+  return {
+    transactions: transactionsResult.rows.map(mapTransactionRow),
+    payoutLines: payoutsResult.rows.map(mapPayoutRow),
+  };
+}
