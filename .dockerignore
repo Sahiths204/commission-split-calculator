@@ -6,6 +6,8 @@ web/dist
 .github
 .env
 .env.local
+web/.env
+web/.env.local
 coverage
 .claude
 *.log

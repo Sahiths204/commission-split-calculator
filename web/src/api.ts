@@ -6,8 +6,12 @@
 // - Every function throws a clear Error on a non-2xx response, using the server's `error`
 //   message when available.
 
-const BASE_URL: string =
-  (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3999';
+// Defaults to '' (same-origin relative requests) so the built frontend works unmodified behind
+// whatever origin serves it in production — the backend serves this same build from one app, so
+// no API host needs to be baked in at build time. VITE_API_URL stays available as an override for
+// any case where the frontend is served from a different origin than its API (dev's own proxy in
+// vite.config.ts handles the common separate-dev-servers case without needing this at all).
+const BASE_URL: string = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 export interface Payee {
   id: string;
