@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { Decimal } from 'decimal.js';
 
-import { insertPayee, listPayees } from '../db/payeeRepository.js';
+import { getPayeeById, insertPayee, listPayees } from '../db/payeeRepository.js';
 import {
   createTransactionWithPayouts,
   getPayoutsForTransaction,
@@ -68,6 +68,21 @@ app.post('/payees', async (req: Request, res: Response) => {
   } catch {
     res.status(400).json({ error: 'commissionRate must be a valid decimal string' });
     return;
+  }
+
+  if (managerId !== null) {
+    const manager = await getPayeeById(managerId);
+    if (!manager) {
+      res.status(400).json({ error: 'managerId does not reference an existing payee' });
+      return;
+    }
+
+    if (manager.commissionRate.lte(parsedRate)) {
+      res.status(400).json({
+        error: `manager's commission rate (${manager.commissionRate.toString()}) must be greater than the payee's own commission rate (${parsedRate.toString()})`,
+      });
+      return;
+    }
   }
 
   const payee = await insertPayee({ name, commissionRate: parsedRate, managerId });

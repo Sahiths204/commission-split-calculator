@@ -37,12 +37,12 @@ describe('app (integration against real Postgres)', () => {
   it('POST /payees creates a payee and returns 201 with a string commissionRate', async () => {
     const res = await request(app)
       .post('/payees')
-      .send({ name: 'Jordan Lake', commissionRate: '0.05', managerId: null });
+      .send({ name: 'Jordan Lake', commissionRate: '0.30', managerId: null });
 
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('Jordan Lake');
     expect(typeof res.body.commissionRate).toBe('string');
-    expect(res.body.commissionRate).toBe('0.05');
+    expect(res.body.commissionRate).toBe('0.3');
     expect(res.body.managerId).toBeNull();
     expect(typeof res.body.id).toBe('string');
 
@@ -88,9 +88,9 @@ describe('app (integration against real Postgres)', () => {
     expect(base?.payeeId).toBe(repId);
     expect(override?.payeeId).toBe(managerId);
 
-    // rep rate 0.20 against 500.00 -> 100.00 base; manager rate 0.05 against 500.00 -> 25.00 override.
+    // rep rate 0.20 against 500.00 -> 100.00 base; override spread (0.30 - 0.20) against 500.00 -> 50.00.
     expect(new Decimal(base!.amount).equals(new Decimal('100.00'))).toBe(true);
-    expect(new Decimal(override!.amount).equals(new Decimal('25.00'))).toBe(true);
+    expect(new Decimal(override!.amount).equals(new Decimal('50.00'))).toBe(true);
 
     transactionId = base!.transactionId;
     originalPayouts = payouts;
@@ -118,7 +118,7 @@ describe('app (integration against real Postgres)', () => {
     ).toBe(true);
 
     expect(new Decimal(refundBase!.amount).equals(new Decimal('-100.00'))).toBe(true);
-    expect(new Decimal(refundOverride!.amount).equals(new Decimal('-25.00'))).toBe(true);
+    expect(new Decimal(refundOverride!.amount).equals(new Decimal('-50.00'))).toBe(true);
   });
 
   it('GET /transactions/:id/payouts returns the same payout lines that were returned by the creating POST', async () => {
@@ -150,6 +150,39 @@ describe('app (integration against real Postgres)', () => {
     expect(res.status).toBe(400);
     expect(typeof res.body.error).toBe('string');
     expect(res.body.error.length).toBeGreaterThan(0);
+  });
+
+  it("POST /payees with a manager whose rate is not strictly greater than the payee's returns 400", async () => {
+    const equalRateManagerRes = await request(app)
+      .post('/payees')
+      .send({ name: 'Pat Flat', commissionRate: '0.15', managerId: null });
+    expect(equalRateManagerRes.status).toBe(201);
+    const equalRateManagerId = equalRateManagerRes.body.id;
+
+    const res = await request(app)
+      .post('/payees')
+      .send({ name: 'Casey Low', commissionRate: '0.15', managerId: equalRateManagerId });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe(
+      "manager's commission rate (0.15) must be greater than the payee's own commission rate (0.15)",
+    );
+  });
+
+  it("POST /payees with a manager whose rate is strictly greater than the payee's succeeds", async () => {
+    const seniorRes = await request(app)
+      .post('/payees')
+      .send({ name: 'Taylor High', commissionRate: '0.30', managerId: null });
+    expect(seniorRes.status).toBe(201);
+    const seniorId = seniorRes.body.id;
+
+    const res = await request(app)
+      .post('/payees')
+      .send({ name: 'Morgan Junior', commissionRate: '0.12', managerId: seniorId });
+
+    expect(res.status).toBe(201);
+    expect(res.body.managerId).toBe(seniorId);
+    expect(res.body.commissionRate).toBe('0.12');
   });
 
   it('GET /transactions returns 200 with all persisted transactions and their payout lines, ordered sensibly', async () => {
@@ -196,7 +229,7 @@ describe('app (integration against real Postgres)', () => {
     expect(earlierBase?.payeeId).toBe(repId);
     expect(earlierOverride?.payeeId).toBe(managerId);
     expect(new Decimal(earlierBase!.amount).equals(new Decimal('100.00'))).toBe(true);
-    expect(new Decimal(earlierOverride!.amount).equals(new Decimal('25.00'))).toBe(true);
+    expect(new Decimal(earlierOverride!.amount).equals(new Decimal('50.00'))).toBe(true);
 
     // Sensible ordering: occurredAt should be non-decreasing across the returned transactions.
     for (let i = 1; i < transactions.length; i += 1) {

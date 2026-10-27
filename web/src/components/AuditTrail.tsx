@@ -64,6 +64,23 @@ const styles = {
   dash: {
     color: '#6b6b76',
   },
+  overrideList: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '6px',
+  },
+  overrideLevelBadge: {
+    display: 'inline-block',
+    background: '#e4e7f5',
+    color: '#2f4bb3',
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase' as const,
+    borderRadius: '999px',
+    padding: '1px 7px',
+    marginRight: '6px',
+  },
   badge: {
     display: 'inline-block',
     background: '#b3261e',
@@ -127,7 +144,7 @@ interface TransactionGroup {
   amount: string;
   occurredAt: string;
   base: PayoutLine | undefined;
-  override: PayoutLine | undefined;
+  overrides: PayoutLine[];
   isRefund: boolean;
 }
 
@@ -140,23 +157,25 @@ function payeeName(payees: Payee[], payeeId: string | undefined): string {
 }
 
 /**
- * Groups the flat payout-line list (one base/override line per transaction, as the backend
- * returns them) into one row per transaction, joined against the `transactions` prop for the
- * payee/amount/date (rather than reverse-engineering the original amount from the base line and
- * the payee's commission rate, which would be fragile and duplicate money math that belongs on
- * the server).
+ * Groups the flat payout-line list (one base line plus zero or more override lines per
+ * transaction — one per level of the payee's manager hierarchy — as the backend returns them)
+ * into one row per transaction, joined against the `transactions` prop for the payee/amount/date
+ * (rather than reverse-engineering the original amount from the base line and the payee's
+ * commission rate, which would be fragile and duplicate money math that belongs on the server).
+ * Override lines are kept in the order the backend returns them (level order), since there's no
+ * level number on the line itself to re-sort by.
  */
 function buildGroups(
   transactions: TransactionSummary[],
   payoutLines: PayoutLine[],
 ): TransactionGroup[] {
-  const linesByTransaction = new Map<string, { base?: PayoutLine; override?: PayoutLine }>();
+  const linesByTransaction = new Map<string, { base?: PayoutLine; overrides: PayoutLine[] }>();
   for (const line of payoutLines) {
-    const entry = linesByTransaction.get(line.transactionId) ?? {};
+    const entry = linesByTransaction.get(line.transactionId) ?? { overrides: [] };
     if (line.type === 'base') {
       entry.base = line;
     } else {
-      entry.override = line;
+      entry.overrides.push(line);
     }
     linesByTransaction.set(line.transactionId, entry);
   }
@@ -169,7 +188,7 @@ function buildGroups(
       amount: transaction.amount,
       occurredAt: transaction.occurredAt,
       base: lines?.base,
-      override: lines?.override,
+      overrides: lines?.overrides ?? [],
       isRefund: false,
     };
   });
@@ -281,7 +300,7 @@ export function AuditTrail({
                   <th style={styles.th}>Payee</th>
                   <th style={styles.th}>Amount</th>
                   <th style={styles.th}>Base</th>
-                  <th style={styles.th}>Override</th>
+                  <th style={styles.th}>Overrides (by level)</th>
                 </tr>
               </thead>
               <tbody>
@@ -310,13 +329,18 @@ export function AuditTrail({
                         )}
                       </td>
                       <td style={styles.tdBase}>
-                        {group.override ? (
-                          <>
-                            <div>{group.override.amount}</div>
-                            <div style={styles.subtext}>
-                              {payeeName(payees, group.override.payeeId)}
-                            </div>
-                          </>
+                        {group.overrides.length > 0 ? (
+                          <div style={styles.overrideList}>
+                            {group.overrides.map((override, index) => (
+                              <div key={`${override.payeeId}-${index}`}>
+                                <span style={styles.overrideLevelBadge}>L{index + 1}</span>
+                                <span>{override.amount}</span>
+                                <div style={styles.subtext}>
+                                  {payeeName(payees, override.payeeId)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         ) : (
                           <span style={styles.dash}>—</span>
                         )}

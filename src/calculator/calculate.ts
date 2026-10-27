@@ -6,8 +6,11 @@ export function calculateBasePayout(amount: Decimal, rate: Decimal): Decimal {
   return amount.times(rate);
 }
 
-export function calculateOverridePayout(amount: Decimal, managerRate: Decimal): Decimal {
-  return amount.times(managerRate);
+// The spread between one level's rate and the level directly below it, applied to the
+// transaction amount. Not the upline's full rate — this is what lets the override walk every
+// level of the hierarchy without double-paying the rate the downline already earned.
+export function calculateOverridePayout(amount: Decimal, uplineRate: Decimal, downlineRate: Decimal): Decimal {
+  return amount.times(uplineRate.minus(downlineRate));
 }
 
 export function calculateTransactionPayouts(
@@ -28,17 +31,21 @@ export function calculateTransactionPayouts(
     },
   ];
 
-  if (payee.managerId) {
-    const manager = payees.find((p) => p.id === payee.managerId);
-    if (!manager) {
-      throw new Error(`Manager '${payee.managerId}' not found for payee '${payee.id}'`);
+  let downline = payee;
+  let uplineId = payee.managerId;
+  while (uplineId) {
+    const upline = payees.find((p) => p.id === uplineId);
+    if (!upline) {
+      throw new Error(`Manager '${uplineId}' not found for payee '${downline.id}'`);
     }
     payoutLines.push({
       transactionId: transaction.id,
-      payeeId: manager.id,
+      payeeId: upline.id,
       type: 'override',
-      amount: calculateOverridePayout(transaction.amount, manager.commissionRate),
+      amount: calculateOverridePayout(transaction.amount, upline.commissionRate, downline.commissionRate),
     });
+    downline = upline;
+    uplineId = upline.managerId;
   }
 
   return payoutLines;

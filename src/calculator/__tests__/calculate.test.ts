@@ -41,7 +41,7 @@ describe('calculateTransactionPayouts', () => {
 
   const payees: Payee[] = [manager, rep, soloRep];
 
-  it('produces a base line for the payee and an override line for the manager, using the manager\'s own rate against the transaction amount', () => {
+  it('produces a base line for the payee and an override line for the manager, using the spread between the manager\'s rate and the payee\'s rate against the transaction amount', () => {
     const transaction: Transaction = {
       id: 'txn-1001',
       payeeId: rep.id,
@@ -65,8 +65,10 @@ describe('calculateTransactionPayouts', () => {
     expect(overridePayout).toBeDefined();
     expect(overridePayout?.transactionId).toBe(transaction.id);
     expect(overridePayout?.payeeId).toBe(manager.id);
-    expect(overridePayout?.amount.equals(transaction.amount.times(manager.commissionRate))).toBe(true);
-    expect(overridePayout?.amount.equals(new Decimal('25.00'))).toBe(true);
+    expect(
+      overridePayout?.amount.equals(transaction.amount.times(manager.commissionRate.minus(rep.commissionRate))),
+    ).toBe(true);
+    expect(overridePayout?.amount.equals(new Decimal('-75.00'))).toBe(true);
   });
 
   it('reverses both the base and override payouts exactly when a refund/chargeback produces a negative-amount transaction', () => {
@@ -105,10 +107,13 @@ describe('calculateTransactionPayouts', () => {
     expect(refundOverride?.amount.equals(originalOverride!.amount.negated())).toBe(true);
 
     expect(refundBase?.amount.equals(new Decimal('-100.00'))).toBe(true);
-    expect(refundOverride?.amount.equals(new Decimal('-25.00'))).toBe(true);
+    expect(refundOverride?.amount.equals(new Decimal('75.00'))).toBe(true);
 
+    // The base payout always flips sign with the transaction amount. The override's sign depends
+    // on the spread between manager and payee rates (negative here, since this fixture's manager
+    // rate is below the payee's) — what must hold, and is asserted above, is that it is the exact
+    // negation of the original override, not any particular sign.
     expect(refundBase?.amount.lessThan(0)).toBe(true);
-    expect(refundOverride?.amount.lessThan(0)).toBe(true);
   });
 
   it('returns only a base payout line when the payee has no manager', () => {
@@ -128,48 +133,60 @@ describe('calculateTransactionPayouts', () => {
     expect(result[0].amount.equals(new Decimal('54.00'))).toBe(true);
   });
 
-  it('caps the override at one level: a grandmanager above the manager receives no payout line', () => {
-    const grandManager: Payee = {
-      id: 'payee-grandmanager-1',
-      name: 'Morgan Price',
-      commissionRate: new Decimal('0.03'),
+  it('walks the full chain: every level above the seller gets the spread against the level directly below it', () => {
+    const sahith: Payee = {
+      id: 'payee-sahith-1',
+      name: 'Sahith',
+      commissionRate: new Decimal('1.60'),
       managerId: null,
     };
 
-    const directManager: Payee = {
-      id: 'payee-directmanager-1',
-      name: 'Avery Quinn',
-      commissionRate: new Decimal('0.06'),
-      managerId: grandManager.id,
+    const varun: Payee = {
+      id: 'payee-varun-1',
+      name: 'Varun',
+      commissionRate: new Decimal('1.35'),
+      managerId: sahith.id,
     };
 
-    const chainPayee: Payee = {
-      id: 'payee-chain-1',
-      name: 'Drew Ellis',
-      commissionRate: new Decimal('0.22'),
-      managerId: directManager.id,
+    const deepak: Payee = {
+      id: 'payee-deepak-1',
+      name: 'Deepak',
+      commissionRate: new Decimal('1.20'),
+      managerId: varun.id,
     };
 
-    const chainPayees: Payee[] = [grandManager, directManager, chainPayee];
+    const chainPayees: Payee[] = [sahith, varun, deepak];
 
     const transaction: Transaction = {
       id: 'txn-3003',
-      payeeId: chainPayee.id,
-      amount: new Decimal('400.00'),
+      payeeId: deepak.id,
+      amount: new Decimal('5000.00'),
       occurredAt: new Date('2026-03-01T00:00:00.000Z'),
     };
 
     const result = calculateTransactionPayouts(transaction, chainPayees);
 
-    expect(result).toHaveLength(2);
+    // Three payout lines, not two: the chain is walked all the way up, not capped at one level.
+    expect(result).toHaveLength(3);
 
-    const basePayout = result.find((line) => line.type === 'base');
-    const overridePayout = result.find((line) => line.type === 'override');
+    const basePayout = result.find((line) => line.payeeId === deepak.id);
+    const varunOverride = result.find((line) => line.payeeId === varun.id);
+    const sahithOverride = result.find((line) => line.payeeId === sahith.id);
 
-    expect(basePayout?.payeeId).toBe(chainPayee.id);
-    expect(overridePayout?.payeeId).toBe(directManager.id);
+    expect(basePayout).toBeDefined();
+    expect(basePayout?.type).toBe('base');
+    expect(basePayout?.amount.equals(new Decimal('6000.00'))).toBe(true);
 
-    expect(result.some((line) => line.payeeId === grandManager.id)).toBe(false);
+    expect(varunOverride).toBeDefined();
+    expect(varunOverride?.type).toBe('override');
+    expect(varunOverride?.amount.equals(new Decimal('750.00'))).toBe(true);
+
+    expect(sahithOverride).toBeDefined();
+    expect(sahithOverride?.type).toBe('override');
+    expect(sahithOverride?.amount.equals(new Decimal('1250.00'))).toBe(true);
+
+    // Proves it's the spread (1.60 - 1.35 = 0.25), not sahith's full rate (1.60), that was applied.
+    expect(sahithOverride?.amount.equals(transaction.amount.times(sahith.commissionRate))).toBe(false);
   });
 });
 

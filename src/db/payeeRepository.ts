@@ -34,6 +34,15 @@ export async function insertPayee(payee: {
   return mapRowToPayee(result.rows[0]);
 }
 
+export async function getPayeeById(id: string): Promise<Payee | null> {
+  const result = await pool.query<PayeeRow>(
+    'SELECT id, name, commission_rate, manager_id FROM payees WHERE id = $1',
+    [id],
+  );
+
+  return result.rows[0] ? mapRowToPayee(result.rows[0]) : null;
+}
+
 export async function listPayees(): Promise<Payee[]> {
   const result = await pool.query<PayeeRow>(
     'SELECT id, name, commission_rate, manager_id FROM payees',
